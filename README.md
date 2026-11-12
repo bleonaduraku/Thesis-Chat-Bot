@@ -36,17 +36,6 @@ npm run dev
 
 Open <http://localhost:3000>. The admin page is <http://localhost:3000/knowledge> (username `admin`, password from `ADMIN_PASSWORD`).
 
-### Running without Supabase
-
-`local-db/` contains an embedded PostgreSQL server (PGlite) with pgvector:
-
-```bash
-cd local-db && npm install && cd ..
-node local-db/server.js    # PostgreSQL on 127.0.0.1:5433
-```
-
-Set both `DATABASE_URL` and `DIRECT_URL` to `postgresql://postgres:postgres@127.0.0.1:5433/postgres?sslmode=disable`, then create the tables with `npx prisma db push --schema local-db/schema.local.prisma`.
-
 ## Environment variables
 
 | Variable | Purpose |

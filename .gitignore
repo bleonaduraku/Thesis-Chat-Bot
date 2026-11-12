@@ -44,8 +44,7 @@ next-env.d.ts
 /src/generated/prisma
 
 # local database (PGlite) used for running on this PC
-/local-db/node_modules
-/local-db/data
+/local-db
 
 # temporary helper scripts and thesis material (not part of the app)
 /scripts/.tmp
