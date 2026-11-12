@@ -1,0 +1,105 @@
+// Prisma schema for the customer-service chatbot (RAG over Supabase Postgres + pgvector)
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+  // No native query engine binary at all - the app only ever connects via
+  // the @prisma/adapter-pg driver adapter (see src/lib/prisma.ts). Without
+  // this, the generated client still expects/probes for the engine binary
+  // even when an adapter is passed, which is what caused it to keep failing
+  // on Vercel with "could not locate the Query Engine" after switching to
+  // the adapter in code alone.
+  engineType      = "client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  // `vector` is what we actually use (pgvector). The rest are extensions
+  // Supabase pre-installs on every new project; they must be declared here
+  // too, or Prisma Migrate treats them as unexpected drift on every diff.
+  extensions = [vector]
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String?        @unique
+  name          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@index([userId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model KnowledgeDocument {
+  id        String          @id @default(uuid())
+  title     String
+  content   String
+  metadata  Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  chunks    DocumentChunk[]
+
+  @@map("knowledge_documents")
+}
+
+model DocumentChunk {
+  id         String             @id @default(uuid())
+  documentId String
+  document   KnowledgeDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  content    String
+  createdAt  DateTime           @default(now())
+  embedding  Embedding?
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+// `vector` has no first-class Prisma scalar type, so it's modeled as Unsupported.
+// Reads/writes against this column go through $queryRaw / $executeRaw (see src/lib/vectorSearch.ts).
+model Embedding {
+  id        String                      @id @default(uuid())
+  chunkId   String                      @unique
+  chunk     DocumentChunk               @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  vector    Unsupported("vector(1536)")
+  model     String                      @default("text-embedding-3-small")
+  createdAt DateTime                    @default(now())
+
+  @@map("embeddings")
+}
